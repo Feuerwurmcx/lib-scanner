@@ -1,0 +1,40 @@
+# WEGWERF-VERSUCH: ein einzelner Pod, der einmal durchlaeuft und sich beendet.
+# Bewusst mit den strengen Einstellungen (kein root, keine Capabilities,
+# Standard-seccomp), damit das Ergebnis fuer einen Namespace ohne
+# privilegierte Pods aussagekraeftig ist.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lib-scanner-spike
+  labels:
+    app: lib-scanner-spike
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000        # entfernen, falls der Cluster die UID selbst vergibt (z. B. OpenShift)
+    runAsGroup: 1000       # dito
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: spike
+      image: REGISTRY/lib-scanner-spike:1    # <-- anpassen
+      command: ["bash", "/spike/run.sh"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      resources:
+        requests: { cpu: 250m, memory: 128Mi }
+        limits: { cpu: "1", memory: 512Mi }
+      volumeMounts:
+        - { name: scripts, mountPath: /spike, readOnly: true }
+        - { name: tmp, mountPath: /tmp }
+  volumes:
+    - name: scripts
+      configMap:
+        name: lib-scanner-spike
+    - name: tmp
+      emptyDir: {}
